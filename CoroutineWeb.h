@@ -11,6 +11,7 @@
 #include <cerrno>
 #include <stdio.h>
 #include <unordered_map>
+#include <csignal>
 #include "AsyncReadWrite.h"
 
 class CoroutineWeb
