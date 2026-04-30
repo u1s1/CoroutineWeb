@@ -32,4 +32,5 @@ private:
     int _ep_fd;
     bool _running;
     std::unordered_map<int, Task> _coroutine_map;
+    std::vector<int> _delete_fd;
 };

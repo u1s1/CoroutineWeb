@@ -83,7 +83,7 @@ struct AsyncRead
         epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &event);
     }
 
-    size_t await_resume()
+    ssize_t await_resume()
     {
         std::cout << "read resume\n";
         //如果已经读成功或者确定失败
@@ -125,7 +125,7 @@ struct AsyncWrite
         epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &event);
     }
 
-    size_t await_resume()
+    ssize_t await_resume()
     {
         std::cout << "write resume\n";
         //如果已经写成功或者确定失败

@@ -83,6 +83,11 @@ void CoroutineWeb::run()
                 }
             }
         }
+        for (int fd : _delete_fd)
+        {
+            _coroutine_map.erase(fd);
+        }
+        _delete_fd.clear();
     }
 }
 
@@ -125,5 +130,6 @@ Task CoroutineWeb::add_coroutine_task(int fd)
         }
         break;
     }
-    _coroutine_map.erase(fd);
+    close(fd);
+    _delete_fd.push_back(fd);
 }
