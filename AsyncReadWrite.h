@@ -15,42 +15,12 @@ struct Task
 {
     struct promise_type
     {
-        Task get_return_object() {return {std::coroutine_handle<promise_type>::from_promise(*this)};}
+        Task get_return_object() {return {};}
         std::suspend_never initial_suspend() { return {}; }
-        std::suspend_always final_suspend() noexcept { return {}; }
+        std::suspend_never final_suspend() noexcept { return {}; }
         void return_void() {} // 如果协程不返回具体值
         void unhandled_exception() { std::terminate(); }
     };
-
-    std::coroutine_handle<promise_type> _h;
-    Task():_h(nullptr){}
-    Task(std::coroutine_handle<promise_type> h) :_h(h){}
-    Task(const Task &) = delete;
-    Task& operator=(const Task &) = delete;
-    Task(Task&& t)noexcept : _h(t._h)
-    {
-        t._h = nullptr;
-    }
-    Task& operator=(Task&& t)noexcept
-    {
-        if (&t != this)
-        {
-            if (_h) 
-            {
-                _h.destroy();
-            }
-            _h = t._h;
-            t._h = nullptr;
-        }
-        return *this;
-    }
-    ~Task()
-    {
-        if (_h) 
-        {
-            _h.destroy();
-        }
-    }
 };
 
 struct AsyncRead
@@ -85,7 +55,6 @@ struct AsyncRead
 
     ssize_t await_resume()
     {
-        std::cout << "read resume\n";
         //如果已经读成功或者确定失败
         if (result >= 0 || (result < 0 && errno != EAGAIN))
         {
@@ -127,7 +96,6 @@ struct AsyncWrite
 
     ssize_t await_resume()
     {
-        std::cout << "write resume\n";
         //如果已经写成功或者确定失败
         if (result >= 0 || (result < 0 && errno != EAGAIN))
         {

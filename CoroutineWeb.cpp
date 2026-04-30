@@ -16,6 +16,7 @@ void CoroutineWeb::init()
     _listen_fd = socket(AF_INET, SOCK_STREAM, 0);
     // 设置端口复用，防止重启时 Address already in use
     int opt = 1;
+    setsockopt(_listen_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
     setsockopt(_listen_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
     int flags = fcntl(_listen_fd, F_GETFL, 0);
@@ -44,7 +45,6 @@ void CoroutineWeb::run()
     std::vector<epoll_event> events(1024);
     while (_running)
     {
-        std::cout << "new epoll_wait\n";
         int nums = epoll_wait(_ep_fd, events.data(), 1024, -1);
         for (int i = 0; i < nums; ++i)
         {
@@ -71,23 +71,18 @@ void CoroutineWeb::run()
                     ev.data.fd = conn_fd; 
                     epoll_ctl(_ep_fd, EPOLL_CTL_ADD, conn_fd, &ev);
 
-                    _coroutine_map.emplace(conn_fd, add_coroutine_task(conn_fd));
+                    add_coroutine_task(conn_fd);
                 }
             }
             else
             {
                 auto h = std::coroutine_handle<>::from_address(events[i].data.ptr);
-                if (h &&!h.done())
+                if (h)
                 {
                     h.resume();
                 }
             }
         }
-        for (int fd : _delete_fd)
-        {
-            _coroutine_map.erase(fd);
-        }
-        _delete_fd.clear();
     }
 }
 
@@ -98,37 +93,32 @@ void CoroutineWeb::stop()
 
 Task CoroutineWeb::add_coroutine_task(int fd)
 {
-    std::vector<char> buffer(1024);
-    int pos = 0;
+    char buffer[1024];
+
     while (true)
     {
-        int length = co_await AsyncRead{_ep_fd, fd, buffer.data() + pos, (ssize_t)1024 - pos};
-        if (length <= 0)
+        // 1. 读取客户端的 HTTP 请求（不关心具体内容和长度，只要能读出一点东西就行）
+        int length = co_await AsyncRead{_ep_fd, fd, buffer, 1024};
+        
+        if (length > 0)
         {
-            break;
-        }
-        pos += length;
-        if (pos < 1024)
-        {
+            int write_pos = 0;
+
+            // 3. 循环保证响应完全写回
+            while (write_pos < length)
+            {
+                int w_len = co_await AsyncWrite{_ep_fd, fd, (char*)(buffer + write_pos), (ssize_t)(length - write_pos)};
+                if (w_len <= 0) {
+                    close(fd);
+                    co_return;    // 直接结束协程！
+                }
+                write_pos += w_len;
+            }
             continue;
         }
-
-        pos = 0;
-        while (true)
-        {
-            length = co_await AsyncWrite{_ep_fd, fd, buffer.data() + pos, (ssize_t)1024 - pos};
-            if (length <= 0)
-            {
-                break;
-            }
-            pos += length;
-            if (pos < 1024)
-            {
-                continue;
-            }
-            break;
-        }
+        break;
     }
+
+    // 4. 断开连接并回收协程
     close(fd);
-    _delete_fd.push_back(fd);
 }
