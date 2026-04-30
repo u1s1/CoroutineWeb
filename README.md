@@ -1,1 +1,9 @@
 # CoroutineWeb
+epoll总结：
+1.epoll是使用epoll_event结构体对象对相应的文件描述符如socket之类进行监控，一个epoll_event对象只对一个描述符进行监控；
+2.epoll_event对象从被epoll_ctl函数存进去到取出来这段时间不会被任何东西修改，相当于我们用epoll_event对象作为被监控文件描述符的身份证；
+3.当监控的文件有变化时，调用epoll_wait函数可获取到所有有变化的文件绑定的的epoll_event对象列表；
+
+协程总结：
+1.在此项目中read和write不再被认为是耗时操作，可直接在协程主流程中同步调用；
+2.一旦接收到连接后可立刻开启读写行为，真正的耗时操作是读写请求等待;
