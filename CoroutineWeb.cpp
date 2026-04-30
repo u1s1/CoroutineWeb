@@ -103,7 +103,7 @@ Task CoroutineWeb::add_coroutine_task(int fd)
     while (true)
     {
         int length = co_await AsyncRead{_ep_fd, fd, buffer.data() + pos, (ssize_t)1024 - pos};
-        if (length < 0)
+        if (length <= 0)
         {
             break;
         }
@@ -117,7 +117,7 @@ Task CoroutineWeb::add_coroutine_task(int fd)
         while (true)
         {
             length = co_await AsyncWrite{_ep_fd, fd, buffer.data() + pos, (ssize_t)1024 - pos};
-            if (length < 0)
+            if (length <= 0)
             {
                 break;
             }
