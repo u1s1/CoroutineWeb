@@ -128,7 +128,6 @@ Task CoroutineWeb::add_coroutine_task(int fd)
             }
             break;
         }
-        break;
     }
     close(fd);
     _delete_fd.push_back(fd);
