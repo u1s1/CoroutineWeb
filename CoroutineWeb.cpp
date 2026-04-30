@@ -34,7 +34,7 @@ void CoroutineWeb::init()
     epoll_event event;
     event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
     event.data.fd = _listen_fd;
-    epoll_ctl(_ep_fd, EPOLL_CTL_MOD, _listen_fd, &event);
+    epoll_ctl(_ep_fd, EPOLL_CTL_ADD, _listen_fd, &event);
 
     std::cout << "start listen...\n";
 }
@@ -71,7 +71,7 @@ void CoroutineWeb::run()
                     ev.data.fd = conn_fd; 
                     epoll_ctl(_ep_fd, EPOLL_CTL_ADD, conn_fd, &ev);
 
-                    _coroutine_map[conn_fd] = add_coroutine_task(conn_fd);
+                    _coroutine_map.emplace(conn_fd, add_coroutine_task(conn_fd));
                 }
             }
             else
@@ -97,7 +97,12 @@ Task CoroutineWeb::add_coroutine_task(int fd)
     int pos = 0;
     while (true)
     {
-        pos += co_await AsyncRead{_ep_fd, fd, buffer.data() + pos, (size_t)1024 - pos};
+        int length = co_await AsyncRead{_ep_fd, fd, buffer.data() + pos, (ssize_t)1024 - pos};
+        if (length < 0)
+        {
+            break;
+        }
+        pos += length;
         if (pos < 1024)
         {
             continue;
@@ -106,7 +111,12 @@ Task CoroutineWeb::add_coroutine_task(int fd)
         pos = 0;
         while (true)
         {
-            pos += co_await AsyncWrite{_ep_fd, fd, buffer.data() + pos, (size_t)1024 - pos};
+            length = co_await AsyncWrite{_ep_fd, fd, buffer.data() + pos, (ssize_t)1024 - pos};
+            if (length < 0)
+            {
+                break;
+            }
+            pos += length;
             if (pos < 1024)
             {
                 continue;

@@ -23,12 +23,33 @@ struct Task
     };
 
     std::coroutine_handle<promise_type> _h;
-    //Task(std::coroutine_handle<promise_type> h):_h(h){}
-    ~Task(){ 
+    Task():_h(nullptr){}
+    Task(std::coroutine_handle<promise_type> h) :_h(h){}
+    Task(const Task &) = delete;
+    Task& operator=(const Task &) = delete;
+    Task(Task&& t)noexcept : _h(t._h)
+    {
+        t._h = nullptr;
+    }
+    Task& operator=(Task&& t)noexcept
+    {
+        if (&t != this)
+        {
+            if (_h) 
+            {
+                _h.destroy();
+            }
+            _h = t._h;
+            t._h = nullptr;
+        }
+        return *this;
+    }
+    ~Task()
+    {
         if (_h) 
         {
             _h.destroy();
-        } 
+        }
     }
 };
 
@@ -37,8 +58,8 @@ struct AsyncRead
     int epfd;
     int fd;
     char* buffer;
-    size_t length;
-    size_t result = 0;
+    ssize_t length;
+    ssize_t result = 0;
     bool await_ready() {
         result = read(fd, buffer, length);
         if (result >= 0)
@@ -79,8 +100,8 @@ struct AsyncWrite
     int epfd;
     int fd;
     char* buffer;
-    size_t length;
-    size_t result = 0;
+    ssize_t length;
+    ssize_t result = 0;
     bool await_ready() {
         result = write(fd, buffer, length);
         if (result >= 0)
@@ -99,7 +120,7 @@ struct AsyncWrite
 
     void await_suspend(std::coroutine_handle<> handle){
         epoll_event event;
-        event.events = EPOLLIN | EPOLLET | EPOLLONESHOT;
+        event.events = EPOLLOUT | EPOLLET | EPOLLONESHOT;
         event.data.ptr = handle.address();
         epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &event);
     }
