@@ -95,25 +95,58 @@ void CoroutineWeb::stop()
 Task CoroutineWeb::add_coroutine_task(int fd)
 {
     char buffer[1024];
+    web_head head;
+    int head_size = sizeof(head);
 
     while (true)
     {
-        // 1. 读取客户端的 HTTP 请求（不关心具体内容和长度，只要能读出一点东西就行）
-        int length = co_await AsyncRead{_ep_fd, fd, buffer, 1024};
+        int ready_size = 0;
+        int temp_size = 0;
 
-        if (length <= 0) break;
-
-        int write_pos = 0;
-
-        // 3. 循环保证响应完全写回
-        while (write_pos < length)
+        //收取数据头
+        while (ready_size < head_size)
         {
-            int w_len = co_await AsyncWrite{_ep_fd, fd, (char*)(buffer + write_pos), (ssize_t)(length - write_pos)};
-            if (w_len <= 0) {
+            temp_size = co_await AsyncRead{_ep_fd, fd, (char *)(((char*)&head) + ready_size),
+                                            (ssize_t)(head_size - ready_size)};
+            if (temp_size <= 0)
+            {
                 close(fd);
                 co_return;    // 直接结束协程！
             }
-            write_pos += w_len;
+            ready_size += temp_size;
+        }
+        if (head.length == 0 || head.length > 1024)
+        {
+            close(fd);
+            co_return; 
+        }
+
+        ready_size = 0;
+        while (ready_size < head.length)
+        {
+            temp_size = co_await AsyncRead{_ep_fd, fd, (char *)(buffer + ready_size),
+                                                     (ssize_t)(head.length - ready_size)};
+            if (temp_size <= 0)
+            {
+                close(fd);
+                co_return;    // 直接结束协程！
+            }
+            ready_size += temp_size;
+        }
+
+        //未来在此处添加数据处理步骤
+
+        ready_size = 0;
+        while (ready_size < head.length)
+        {
+            temp_size = co_await AsyncWrite{_ep_fd, fd, (char *)(buffer + ready_size),
+                                            (ssize_t)(head.length - ready_size)};
+            if (temp_size <= 0)
+            {
+                close(fd);
+                co_return;    // 直接结束协程！
+            }
+            ready_size += temp_size;
         }
     }
 

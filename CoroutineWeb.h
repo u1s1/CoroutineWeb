@@ -13,6 +13,7 @@
 #include <unordered_map>
 #include <csignal>
 #include "AsyncReadWrite.h"
+#include "CoroutineProtocol.h"
 
 class CoroutineWeb
 {
