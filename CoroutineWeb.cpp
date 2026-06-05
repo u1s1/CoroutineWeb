@@ -120,7 +120,7 @@ Task CoroutineWeb::add_coroutine_task(int fd)
             close(fd);
             co_return; 
         }
-
+        //收取数据体
         ready_size = 0;
         while (ready_size < head.length)
         {
@@ -136,6 +136,20 @@ Task CoroutineWeb::add_coroutine_task(int fd)
 
         //未来在此处添加数据处理步骤
 
+        //发送数据头
+        ready_size = 0;
+        while (ready_size < head_size)
+        {
+            temp_size = co_await AsyncWrite{_ep_fd, fd, (char *)((char*)(&head) + ready_size),
+                                            (ssize_t)(head_size - ready_size)};
+            if (temp_size <= 0)
+            {
+                close(fd);
+                co_return;    // 直接结束协程！
+            }
+            ready_size += temp_size;
+        }
+        //发送数据体
         ready_size = 0;
         while (ready_size < head.length)
         {
